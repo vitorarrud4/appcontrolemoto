@@ -242,7 +242,6 @@ export default function CadastroMoto({ onSalvarSucesso }) {
 
       if (error) throw error;
 
-      // Sucesso silencioso: limpa o formulário e avisa o pai para redirecionar ou recarregar a lista
       limparFormulario();
 
       if (onSalvarSucesso) {
@@ -355,13 +354,13 @@ export default function CadastroMoto({ onSalvarSucesso }) {
           </div>
         </div>
 
-        {/* Bloco 3: Precificação BÁSICA */}
+        {/* Bloco 3: Precificação BÁSICA (Ajustado com grid responsivo) */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
             <DollarSign className="w-4 h-4" /> 3. Valores
           </h2>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Preço de Compra (R$)</label>
               <input

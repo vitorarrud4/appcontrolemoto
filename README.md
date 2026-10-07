@@ -6,6 +6,7 @@ Sistema web moderno desenvolvido em **React** e **Tailwind CSS**, integrado ao *
 
 ## 🚀 Funcionalidades Principais
 
+* **Sistema de Login:** O sistema de login funciona com base no banco de dados de usuários pré-cadastrados.
 * **Gestão Completa de Estoque:** Cadastro, listagem, edição rápida inline e exclusão de motos.
 * **Cálculo Dinâmico de Custos e Lucros:** O sistema soma o preço de compra com os gastos adicionais inseridos de forma dinâmica e calcula o lucro estimado com base no preço de venda.
 * **Gastos Adicionais Personalizados:** Adicione, edite ou remova despesas extras por veículo (como documentos, oficina e revisões) a qualquer momento.

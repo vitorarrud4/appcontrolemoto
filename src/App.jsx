@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, PlusCircle, Package, Bike, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Package, CheckCircle2, Bike, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from './supabase';
 import CadastroMoto from './CadastroMoto';
 import EstoqueMotos from './EstoqueMotos';
+import MotosVendidas from './MotosVendidas';
 import Dashboard from './Dashboard';
 
 export default function App() {
@@ -40,6 +41,10 @@ export default function App() {
     setTelaAtual(tela);
     setMenuAbertoMobile(false);
   };
+
+  // Separação das motos com base no status (ajuste para o estoque e vendidas)
+  const motosEstoque = motos.filter((moto) => !moto.status || moto.status === 'estoque');
+  const motosVendidas = motos.filter((moto) => moto.status === 'vendida');
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col md:flex-row">
@@ -140,7 +145,7 @@ export default function App() {
 
             <button
               onClick={() => navegarPara('estoque')}
-              title={`Ver Estoque (${motos.length})`}
+              title={`Ver Estoque (${motosEstoque.length})`}
               className={`w-full flex items-center py-3 rounded-2xl text-sm font-semibold transition-all duration-200 ${
                 telaAtual === 'estoque'
                   ? 'bg-blue-600/15 text-blue-400 border border-blue-500/30 shadow-sm'
@@ -151,18 +156,43 @@ export default function App() {
                 <Package className="w-5 h-5 shrink-0" />
                 {!menuRecolhidoDesktop && <span className="truncate">Ver Estoque</span>}
                 
-                {/* Mini badge flutuante alinhada ao lado direito do ícone quando recolhido */}
                 {menuRecolhidoDesktop && (
                   <span className="absolute -top-2 -right-3 px-1.5 py-0.2 text-[10px] font-extrabold rounded-full bg-blue-600 text-white shadow-md border border-slate-900">
-                    {carregando ? '...' : motos.length}
+                    {carregando ? '...' : motosEstoque.length}
                   </span>
                 )}
               </div>
 
-              {/* Contador normal quando expandido */}
               {!menuRecolhidoDesktop && (
                 <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
-                  {carregando ? '...' : motos.length}
+                  {carregando ? '...' : motosEstoque.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => navegarPara('vendidas')}
+              title={`Motos Vendidas (${motosVendidas.length})`}
+              className={`w-full flex items-center py-3 rounded-2xl text-sm font-semibold transition-all duration-200 ${
+                telaAtual === 'vendidas'
+                  ? 'bg-blue-600/15 text-blue-400 border border-blue-500/30 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              } ${menuRecolhidoDesktop ? 'justify-center px-0' : 'justify-between px-3.5'}`}
+            >
+              <div className={`flex items-center gap-3.5 min-w-0 ${menuRecolhidoDesktop ? 'justify-center w-full relative' : ''}`}>
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
+                {!menuRecolhidoDesktop && <span className="truncate">Vendidas</span>}
+                
+                {menuRecolhidoDesktop && (
+                  <span className="absolute -top-2 -right-3 px-1.5 py-0.2 text-[10px] font-extrabold rounded-full bg-emerald-600 text-white shadow-md border border-slate-900">
+                    {carregando ? '...' : motosVendidas.length}
+                  </span>
+                )}
+              </div>
+
+              {!menuRecolhidoDesktop && (
+                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                  {carregando ? '...' : motosVendidas.length}
                 </span>
               )}
             </button>
@@ -173,7 +203,7 @@ export default function App() {
         <div className="px-1 py-3 text-center border-t border-slate-800 space-y-0.5">
           {!menuRecolhidoDesktop ? (
             <>
-              <p className="text-[11px] font-medium text-slate-400 truncate">Sistema de Gestão v1.0</p>
+              <p className="text-[11px] font-medium text-slate-400 truncate">Sistema de Gestão v1.1</p>
               <p className="text-[10px] text-slate-500 truncate">Desenvolvido por Vitor</p>
             </>
           ) : (
@@ -186,7 +216,8 @@ export default function App() {
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
         {telaAtual === 'dashboard' && <Dashboard motos={motos} />}
         {telaAtual === 'cadastro' && <CadastroMoto onSalvarSucesso={() => navegarPara('estoque')} />}
-        {telaAtual === 'estoque' && <EstoqueMotos motos={motos} onAtualizar={buscarMotos} />}
+        {telaAtual === 'estoque' && <EstoqueMotos motos={motosEstoque} onAtualizar={buscarMotos} />}
+        {telaAtual === 'vendidas' && <MotosVendidas motos={motosVendidas} onAtualizar={buscarMotos} />}
       </main>
     </div>
   );

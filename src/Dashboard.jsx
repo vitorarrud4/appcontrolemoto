@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wallet, ShoppingBag, DollarSign, TrendingUp, Bike, ArrowUpRight, Printer } from 'lucide-react';
+import { Wallet, ShoppingBag, DollarSign, TrendingUp, Bike, ArrowUpRight, Printer, CheckCircle2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export default function Dashboard({ motos = [] }) {
@@ -14,21 +14,33 @@ export default function Dashboard({ motos = [] }) {
     return Number(str.replace(/[^0-9.-]+/g, '')) || 0;
   };
 
-  const totalInvestido = motos.reduce((acc, m) => acc + extrairNumero(m.preco_compra) + extrairNumero(m.gastos), 0);
-  const retornoEsperado = motos.reduce((acc, m) => acc + extrairNumero(m.preco_venda), 0);
+  // Separação de estoques e vendidas
+  const motosEstoque = motos.filter((moto) => !moto.status || moto.status === 'estoque');
+  const motosVendidas = motos.filter((moto) => moto.status === 'vendida');
+
+  const totalInvestido = motosEstoque.reduce((acc, m) => {
+    if (m.custo_total) return acc + extrairNumero(m.custo_total);
+    const compra = extrairNumero(m.preco_compra);
+    const adicionais = Array.isArray(m.custos_adicionais) 
+      ? m.custos_adicionais.reduce((soma, c) => soma + extrairNumero(c.valor), 0) 
+      : 0;
+    return acc + compra + adicionais;
+  }, 0);
+
+  const retornoEsperado = motosEstoque.reduce((acc, m) => acc + extrairNumero(m.preco_venda), 0);
   const lucroProjetado = retornoEsperado - totalInvestido;
 
-  const patrimonioFipe = motos.reduce((acc, m) => {
+  const patrimonioFipe = motosEstoque.reduce((acc, m) => {
     return acc + extrairNumero(m.fipe || m.preco_fipe || m.valor_fipe);
   }, 0);
 
   const roi = totalInvestido > 0 ? ((lucroProjetado / totalInvestido) * 100).toFixed(1) : 0;
-  const lucroMedio = motos.length > 0 ? lucroProjetado / motos.length : 0;
+  const lucroMedio = motosEstoque.length > 0 ? lucroProjetado / motosEstoque.length : 0;
 
   const formatarMoeda = (valor) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
-  // Função otimizada para impressão em formato Paisagem (Landscape) economizando tinta
+  // Função otimizada para impressão em formato Paisagem (Landscape)
   const exportarPDF = () => {
     const dataAtual = new Date().toLocaleDateString('pt-BR', {
       day: '2-digit',
@@ -36,17 +48,19 @@ export default function Dashboard({ motos = [] }) {
       year: 'numeric'
     });
 
-    let conteudoTabela = motos.map((moto, index) => {
+    let conteudoTabela = motosEstoque.map((moto, index) => {
       const compra = extrairNumero(moto.preco_compra);
-      const gastos = extrairNumero(moto.gastos);
-      const totalCusto = compra + gastos;
+      const adicionais = Array.isArray(moto.custos_adicionais) 
+        ? moto.custos_adicionais.reduce((soma, c) => soma + extrairNumero(c.valor), 0) 
+        : 0;
+      const totalCusto = moto.custo_total ? extrairNumero(moto.custo_total) : (compra + adicionais);
       const venda = extrairNumero(moto.preco_venda);
       const lucro = venda - totalCusto;
 
       return `
         <tr>
           <td>${index + 1}</td>
-          <td><b>${moto.modelo || moto.nome || 'Moto'}</b><br><span style="color: #64748b; font-size: 11px;">Ano: ${moto.ano || '-'}</span></td>
+          <td><b>${moto.modelo || 'Moto'}</b><br><span style="color: #64748b; font-size: 11px;">Ano: ${moto.ano || '-'}</span></td>
           <td>${moto.placa ? `<span style="font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">${moto.placa}</span>` : '-'}</td>
           <td>${formatarMoeda(totalCusto)}</td>
           <td>${formatarMoeda(venda)}</td>
@@ -61,34 +75,20 @@ export default function Dashboard({ motos = [] }) {
         <head>
           <title>Relatório de Estoque - MotoConta</title>
           <style>
-            @page {
-              size: landscape;
-              margin: 15mm;
-            }
-            body { 
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-              color: #0f172a; 
-              margin: 0; 
-              padding: 0; 
-              background: #ffffff; 
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 15px; margin-bottom: 20px; }
+            @page { size: landscape; margin: 15mm; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; margin: 0; padding: 0; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 15mm; margin-bottom: 20px; }
             .logo h2 { margin: 0; color: #0f172a; font-size: 20px; }
             .logo p { margin: 2px 0 0 0; color: #475569; font-size: 11px; }
             .date { text-align: right; color: #475569; font-size: 11px; }
-            
-            .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
+            .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15mm; margin-bottom: 25px; }
             .card { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 15px; }
             .card p { margin: 0; font-size: 9px; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
             .card h3 { margin: 4px 0 0 0; font-size: 15px; color: #0f172a; }
-
             table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
             th { background: #1e293b !important; color: #ffffff !important; text-align: left; padding: 8px 10px; font-weight: 600; }
             td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
             tr:nth-child(even) { background: #f8fafc; }
-
             .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 10px; }
           </style>
         </head>
@@ -102,11 +102,10 @@ export default function Dashboard({ motos = [] }) {
               <b>Emitido em:</b> ${dataAtual}
             </div>
           </div>
-
           <div class="cards">
             <div class="card">
               <p>Total de Veículos</p>
-              <h3>${motos.length} unidade(s)</h3>
+              <h3>${motosEstoque.length} unidade(s)</h3>
             </div>
             <div class="card">
               <p>Capital Investido</p>
@@ -121,7 +120,6 @@ export default function Dashboard({ motos = [] }) {
               <h3 style="color: #15803d;">${formatarMoeda(lucroProjetado)}</h3>
             </div>
           </div>
-
           <table>
             <thead>
               <tr>
@@ -137,15 +135,11 @@ export default function Dashboard({ motos = [] }) {
               ${conteudoTabela.length > 0 ? conteudoTabela : '<tr><td colspan="6" style="text-align: center; color: #64748b; padding: 20px;">Nenhuma moto cadastrada no estoque.</td></tr>'}
             </tbody>
           </table>
-
           <div class="footer">
             Gerado automaticamente pelo sistema MotoConta v1.0 • Documento de Auditoria e Controle Interno
           </div>
-
           <script>
-            window.onload = function() {
-              window.print();
-            }
+            window.onload = function() { window.print(); }
           </script>
         </body>
       </html>
@@ -153,12 +147,13 @@ export default function Dashboard({ motos = [] }) {
     janelaPrint.document.close();
   };
 
-  const processarEvolucaoTemporal = () => {
-    if (!motos.length) return [];
+  // Gráfico 1: Evolução do Estoque
+  const processarEvolucaoEstoque = () => {
+    if (!motosEstoque.length) return [];
 
-    const motosOrdenadas = [...motos].sort((a, b) => {
-      const dataA = new Date(a.created_at || a.data_compra || Date.now());
-      const dataB = new Date(b.created_at || b.data_compra || Date.now());
+    const motosOrdenadas = [...motosEstoque].sort((a, b) => {
+      const dataA = new Date(a.created_at || Date.now());
+      const dataB = new Date(b.created_at || Date.now());
       return dataA - dataB;
     });
 
@@ -167,12 +162,11 @@ export default function Dashboard({ motos = [] }) {
     const mapaMeses = {};
 
     motosOrdenadas.forEach((moto) => {
-      const dataStr = moto.created_at || moto.data_compra;
+      const dataStr = moto.created_at;
       const data = dataStr ? new Date(dataStr) : new Date();
-      
       const mesAno = data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
       
-      const custo = extrairNumero(moto.preco_compra) + extrairNumero(moto.gastos);
+      const custo = moto.custo_total ? extrairNumero(moto.custo_total) : (extrairNumero(moto.preco_compra) + (Array.isArray(moto.custos_adicionais) ? moto.custos_adicionais.reduce((s, c) => s + extrairNumero(c.valor), 0) : 0));
       const venda = extrairNumero(moto.preco_venda);
       const lucroMoto = venda - custo;
 
@@ -190,7 +184,44 @@ export default function Dashboard({ motos = [] }) {
     return Object.values(mapaMeses).sort((a, b) => a.timestamp - b.timestamp);
   };
 
-  const dadosEvolucao = processarEvolucaoTemporal();
+  // Gráfico 2: Evolução das Vendas
+  const processarEvolucaoVendas = () => {
+    if (!motosVendidas.length) return [];
+
+    const vendasOrdenadas = [...motosVendidas].sort((a, b) => {
+      const dataA = new Date(a.updated_at || a.created_at || Date.now());
+      const dataB = new Date(b.updated_at || b.created_at || Date.now());
+      return dataA - dataB;
+    });
+
+    let faturamentoAcumulado = 0;
+    let lucroRealAcumulado = 0;
+    const mapaMesesVendas = {};
+
+    vendasOrdenadas.forEach((moto) => {
+      const dataStr = moto.updated_at || moto.created_at;
+      const data = dataStr ? new Date(dataStr) : new Date();
+      const mesAno = data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      
+      const vendaReal = extrairNumero(moto.preco_venda);
+      const lucroReal = extrairNumero(moto.lucro_real);
+
+      faturamentoAcumulado += vendaReal;
+      lucroRealAcumulado += lucroReal;
+
+      mapaMesesVendas[mesAno] = {
+        periodo: mesAno.charAt(0).toUpperCase() + mesAno.slice(1),
+        faturamento: faturamentoAcumulado,
+        lucroReal: lucroRealAcumulado,
+        timestamp: data.getTime()
+      };
+    });
+
+    return Object.values(mapaMesesVendas).sort((a, b) => a.timestamp - b.timestamp);
+  };
+
+  const dadosEvolucaoEstoque = processarEvolucaoEstoque();
+  const dadosEvolucaoVendas = processarEvolucaoVendas();
 
   const dadosPizza = [
     { name: 'Capital Investido', value: totalInvestido, color: '#3b82f6' },
@@ -268,7 +299,7 @@ export default function Dashboard({ motos = [] }) {
       </div>
 
       {/* CARDS SECUNDÁRIOS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-md flex justify-between items-center">
           <div>
             <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Patrimônio FIPE Total</p>
@@ -288,9 +319,17 @@ export default function Dashboard({ motos = [] }) {
         <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-md flex justify-between items-center">
           <div>
             <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Veículos no Estoque</p>
-            <h3 className="text-xl font-extrabold mt-1">{motos.length} unidade(s)</h3>
+            <h3 className="text-xl font-extrabold mt-1">{motosEstoque.length} unidade(s)</h3>
           </div>
           <Bike className="w-7 h-7 text-purple-400 opacity-80" />
+        </div>
+
+        <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-md flex justify-between items-center">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Motos Vendidas</p>
+            <h3 className="text-xl font-extrabold text-emerald-400 mt-1">{motosVendidas.length} unidade(s)</h3>
+          </div>
+          <CheckCircle2 className="w-7 h-7 text-emerald-400 opacity-80" />
         </div>
       </div>
 
@@ -300,19 +339,17 @@ export default function Dashboard({ motos = [] }) {
           <div className="flex justify-between items-center mb-4">
             <div>
               <h3 className="text-base font-bold text-slate-800">Evolução do Patrimônio e Lucro</h3>
-              <p className="text-xs text-slate-400">Crescimento acumulado do capital investido e retorno estimado</p>
+              <p className="text-xs text-slate-400">Crescimento acumulado do capital investido e retorno estimado no estoque</p>
             </div>
-            {motos.length > 0 && (
-              <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
-                Visão Temporal
-              </span>
-            )}
+            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
+              Estoque
+            </span>
           </div>
 
-          {motos.length > 0 ? (
+          {motosEstoque.length > 0 ? (
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dadosEvolucao} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <AreaChart data={dadosEvolucaoEstoque} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorInvestido" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -328,39 +365,20 @@ export default function Dashboard({ motos = [] }) {
                   <Tooltip
                     formatter={(value, name) => [
                       formatarMoeda(value),
-                      name === 'investido' ? 'Capital Investido Acumulado' : 'Lucro Acumulado'
+                      name === 'investido' ? 'Capital Investido Acumulado' : 'Lucro Projetado Acumulado'
                     ]}
-                    contentStyle={{
-                      backgroundColor: '#0f172a',
-                      borderRadius: '12px',
-                      border: 'none',
-                      color: '#ffffff'
-                    }}
+                    contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: 'none', color: '#ffffff' }}
                     itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                     labelStyle={{ color: '#94a3b8', fontWeight: 'bold' }}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="investido"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorInvestido)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="lucro"
-                    stroke="#22c55e"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorLucro)"
-                  />
+                  <Area type="monotone" dataKey="investido" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorInvestido)" />
+                  <Area type="monotone" dataKey="lucro" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#colorLucro)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           ) : (
             <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
-              Nenhuma moto cadastrada para exibir gráfico.
+              Nenhuma moto no estoque para exibir gráfico.
             </div>
           )}
         </div>
@@ -375,25 +393,14 @@ export default function Dashboard({ motos = [] }) {
             <div className="h-52 w-full my-auto">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={dadosPizza}
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
+                  <Pie data={dadosPizza} innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
                     {dadosPizza.map((entry, index) => (
                       <Cell key={`pie-cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip
                     formatter={(value) => formatarMoeda(value)}
-                    contentStyle={{
-                      backgroundColor: '#0f172a',
-                      borderRadius: '12px',
-                      border: 'none',
-                      color: '#ffffff'
-                    }}
+                    contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: 'none', color: '#ffffff' }}
                     itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                   />
                 </PieChart>
@@ -416,6 +423,55 @@ export default function Dashboard({ motos = [] }) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* GRÁFICO DE VENDAS COM A MESMA VISUALIZAÇÃO PADRÃO */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Evolução das Vendas e Lucro Real</h3>
+            <p className="text-xs text-slate-400">Crescimento acumulado do faturamento e lucro efetivo das motos vendidas</p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
+            Histórico de Vendas
+          </span>
+        </div>
+
+        {motosVendidas.length > 0 ? (
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={dadosEvolucaoVendas} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorLucroReal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="periodo" tick={{ fill: '#64748b', fontSize: 11 }} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                <Tooltip
+                  formatter={(value, name) => [
+                    formatarMoeda(value),
+                    name === 'faturamento' ? 'Faturamento Acumulado' : 'Lucro Real Acumulado'
+                  ]}
+                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: 'none', color: '#ffffff' }}
+                  itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#94a3b8', fontWeight: 'bold' }}
+                />
+                <Area type="monotone" dataKey="faturamento" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorFaturamento)" />
+                <Area type="monotone" dataKey="lucroReal" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#colorLucroReal)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
+            Nenhuma moto vendida registrada para exibir o gráfico de vendas.
+          </div>
+        )}
       </div>
     </div>
   );

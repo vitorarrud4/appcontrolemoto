@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, PlusCircle, Package, CheckCircle2, Bike, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Package, CheckCircle2, Bike, Menu, X, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { supabase } from './supabase';
 import CadastroMoto from './CadastroMoto';
 import EstoqueMotos from './EstoqueMotos';
 import MotosVendidas from './MotosVendidas';
 import Dashboard from './Dashboard';
+import Login from './Login';
 
 export default function App() {
+  const [session, setSession] = useState(null);
+  const [carregandoSessao, setCarregandoSessao] = useState(true);
+
   const [telaAtual, setTelaAtual] = useState('dashboard');
   const [motos, setMotos] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -15,7 +19,22 @@ export default function App() {
   const [menuAbertoMobile, setMenuAbertoMobile] = useState(false);
   const [menuRecolhidoDesktop, setMenuRecolhidoDesktop] = useState(false);
 
+  // 1. Gerenciamento de Autenticação com Supabase
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setCarregandoSessao(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const buscarMotos = async () => {
+    if (!session) return;
     setCarregando(true);
     try {
       const { data, error } = await supabase
@@ -33,8 +52,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    buscarMotos();
-  }, []);
+    if (session) {
+      buscarMotos();
+    }
+  }, [session]);
 
   const navegarPara = (tela) => {
     buscarMotos();
@@ -42,7 +63,26 @@ export default function App() {
     setMenuAbertoMobile(false);
   };
 
-  // Separação das motos com base no status (ajuste para o estoque e vendidas)
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+  };
+
+  // Se ainda estiver validando o token ao abrir, exibe tela de carregamento
+  if (carregandoSessao) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+        <p>Carregando sistema...</p>
+      </div>
+    );
+  }
+
+  // Se não estiver logado, exibe a tela de login
+  if (!session) {
+    return <Login onLoginSucesso={(sessaoAtiva) => setSession(sessaoAtiva)} />;
+  }
+
+  // Separação das motos com base no status (estoque e vendidas)
   const motosEstoque = motos.filter((moto) => !moto.status || moto.status === 'estoque');
   const motosVendidas = motos.filter((moto) => moto.status === 'vendida');
 
@@ -199,15 +239,26 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Rodapé do Menu */}
-        <div className="px-1 py-3 text-center border-t border-slate-800 space-y-0.5">
+        {/* Rodapé do Menu com Botão de Sair Centralizado */}
+        <div className="px-1 py-3 text-center border-t border-slate-800 space-y-2">
+          <button
+            onClick={handleLogout}
+            title="Sair da Conta"
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors ${
+              menuRecolhidoDesktop ? 'justify-center' : 'justify-center'
+            }`}
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!menuRecolhidoDesktop && <span className="truncate">Sair da Conta</span>}
+          </button>
+
           {!menuRecolhidoDesktop ? (
             <>
               <p className="text-[11px] font-medium text-slate-400 truncate">Sistema de Gestão v1.1</p>
               <p className="text-[10px] text-slate-500 truncate">Desenvolvido por Vitor</p>
             </>
           ) : (
-            <span className="text-[10px] text-slate-500 font-bold block">v1.0</span>
+            <span className="text-[10px] text-slate-500 font-bold block">v1.1</span>
           )}
         </div>
       </aside>
